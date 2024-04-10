@@ -80,7 +80,7 @@ class ProductAdapter : RecyclerView.Adapter<ProductAdapter.ProductViewHolder>() 
             circle.background = createCircleBackground(color)
             return circle
         }
-
+//ESTO ES PRUEBA
         private fun createCircleBackground(color: String): Drawable {
             val drawable = ContextCompat.getDrawable(itemView.context, R.drawable.circle_background)
             drawable?.let {
