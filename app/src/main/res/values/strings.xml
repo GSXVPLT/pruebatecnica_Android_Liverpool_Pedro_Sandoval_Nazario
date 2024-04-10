@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">pruebatecnica_Android_Liverpool_Pedro_Sandoval_Nazario</string>
+
+
+
+    <string name="precio_sin_descuento_format">Precio sin descuento: %s</string>
+    <string name="precio_con_descuento_format">Precio con descuento: %s</string>
+
+</resources>
