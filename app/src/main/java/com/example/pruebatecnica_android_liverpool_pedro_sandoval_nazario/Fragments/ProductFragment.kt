@@ -15,8 +15,9 @@ import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.pruebatecnica_android_liverpool_pedro_sandoval_nazario.Adapters.ProductAdapter
+import com.example.pruebatecnica_android_liverpool_pedro_sandoval_nazario.Clases.ApiResponse
 import com.example.pruebatecnica_android_liverpool_pedro_sandoval_nazario.Clases.Product
-import com.example.pruebatecnica_android_liverpool_pedro_sandoval_nazario.Interfaz.ProductService
+import com.example.pruebatecnica_android_liverpool_pedro_sandoval_nazario.Interfaz.ApiService
 import com.example.pruebatecnica_android_liverpool_pedro_sandoval_nazario.R
 import retrofit2.Call
 import retrofit2.Callback
@@ -28,7 +29,7 @@ import java.util.Locale
 class ProductFragment : Fragment() {
     private lateinit var recyclerView: RecyclerView
     private lateinit var adapter: ProductAdapter
-    private lateinit var productService: ProductService
+    private lateinit var apiService: ApiService
     private lateinit var searchView: EditText
     private lateinit var sortBySpinner: Spinner
     private val sortByOptions = listOf("Predefinida", "Menor Precio", "Mayor Precio", "Relevancia", "Lo Más Nuevo", "Calificaciones")
@@ -36,10 +37,7 @@ class ProductFragment : Fragment() {
     private var isLoading = false
     private var productList = mutableListOf<Product>()
 
-    override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View? {
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
         return inflater.inflate(R.layout.fragment_product, container, false)
     }
 
@@ -54,35 +52,39 @@ class ProductFragment : Fragment() {
         recyclerView.layoutManager = LinearLayoutManager(context)
         recyclerView.adapter = adapter
 
-        productList = mutableListOf()
-
         setupSortBySpinner()
-        productService = createProductService()
-        fetchData()
+        apiService = createProductService()
+        fetchData("")
         setupPagination()
         setupSearch()
     }
 
-    private fun createProductService(): ProductService {
+    private fun createProductService(): ApiService {
         val retrofit = Retrofit.Builder()
             .baseUrl("https://shoppapp.liverpool.com.mx/")
             .addConverterFactory(GsonConverterFactory.create())
             .build()
 
-        return retrofit.create(ProductService::class.java)
+        return retrofit.create(ApiService::class.java)
     }
 
-    private fun fetchData() {
+    private fun fetchData(searchString: String) {
         isLoading = true
-        val call = productService.searchProducts(currentPage, "")
-        call.enqueue(object : Callback<List<Product>> {
-            override fun onResponse(call: Call<List<Product>>, response: Response<List<Product>>) {
+        val call: Call<ApiResponse> = apiService.getData(currentPage, searchString)
+        call.enqueue(object : Callback<ApiResponse> {
+            override fun onResponse(call: Call<ApiResponse>, response: Response<ApiResponse>) {
                 if (response.isSuccessful) {
-                    val products = response.body()
-                    products?.let {
-                        productList.addAll(it)
-                        adapter.addProducts(it)
-                        currentPage++
+                    val apiResponse = response.body()
+                    if (apiResponse != null) {
+                        apiResponse.plpResults.records?.let { products ->
+                            productList.addAll(products)
+                            adapter.addProducts(products)
+                            currentPage++
+                        } ?: run {
+                            Log.e("PruebaError", "La lista de productos está vacía")
+                        }
+                    } else {
+                        Log.e("PruebaError", "Respuesta nula del servidor")
                     }
                 } else {
                     val errorMessage = "Error al obtener los productos. Código de error: ${response.code()}"
@@ -91,7 +93,7 @@ class ProductFragment : Fragment() {
                 isLoading = false
             }
 
-            override fun onFailure(call: Call<List<Product>>, t: Throwable) {
+            override fun onFailure(call: Call<ApiResponse>, t: Throwable) {
                 val errorMessage = "Error de red al obtener los productos: ${t.message}"
                 Log.e("PruebaError", errorMessage)
                 isLoading = false
@@ -108,9 +110,8 @@ class ProductFragment : Fragment() {
                 val totalItemCount = layoutManager.itemCount
                 val firstVisibleItemPosition = layoutManager.findFirstVisibleItemPosition()
 
-                if (!isLoading && (visibleItemCount + firstVisibleItemPosition) >= totalItemCount
-                    && firstVisibleItemPosition >= 0) {
-                    fetchData()
+                if (!isLoading && (visibleItemCount + firstVisibleItemPosition) >= totalItemCount && firstVisibleItemPosition >= 0) {
+                    fetchData("")
                 }
             }
         })
@@ -118,26 +119,21 @@ class ProductFragment : Fragment() {
 
     private fun setupSearch() {
         searchView.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {
-                // No se requiere acción antes de que cambie el texto
-            }
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
 
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                val searchText = s.toString().trim().toLowerCase(Locale.getDefault())
-                val filteredList = productList.filter { product ->
-                    product.description.toLowerCase(Locale.getDefault()).contains(searchText)
-                }
-                adapter.setProducts(filteredList)
+                filterProducts(s.toString().trim().toLowerCase(Locale.getDefault()))
             }
 
-            override fun afterTextChanged(s: Editable?) {
-                val searchText = s.toString().trim().toLowerCase(Locale.getDefault())
-                val filteredList = productList.filter { product ->
-                    product.description.toLowerCase(Locale.getDefault()).contains(searchText)
-                }
-                adapter.setProducts(filteredList)
-            }
+            override fun afterTextChanged(s: Editable?) {}
         })
+    }
+
+    private fun filterProducts(searchText: String) {
+        val filteredList = productList.filter { product ->
+            product.displayName?.toLowerCase(Locale.getDefault())?.contains(searchText) ?: false
+        }
+        adapter.setProducts(filteredList)
     }
 
     private fun setupSortBySpinner() {
@@ -147,7 +143,7 @@ class ProductFragment : Fragment() {
 
         sortBySpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                fetchData()
+                fetchData("")
             }
 
             override fun onNothingSelected(parent: AdapterView<*>?) {

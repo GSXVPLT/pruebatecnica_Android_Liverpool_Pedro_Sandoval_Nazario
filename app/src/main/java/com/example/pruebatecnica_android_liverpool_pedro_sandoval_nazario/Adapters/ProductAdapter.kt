@@ -1,6 +1,7 @@
 package com.example.pruebatecnica_android_liverpool_pedro_sandoval_nazario.Adapters
 
 import android.graphics.Color
+import android.graphics.Paint
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.view.LayoutInflater
@@ -52,19 +53,41 @@ class ProductAdapter : RecyclerView.Adapter<ProductAdapter.ProductViewHolder>() 
         private val layoutVariantesColor: LinearLayout = itemView.findViewById(R.id.layoutVariantesColor)
 
         fun bind(product: Product) {
-            Picasso.get().load(product.imageUrl).into(imageViewProducto)
-            textViewDescripcion.text = product.description
-            textViewPrecioSinDescuento.text = "Precio sin descuento: \$${product.originalPrice}"
-            textViewPrecioConDescuento.text = "Precio con descuento: \$${product.discountedPrice}"
+            Picasso.get()
+                .load(product.largeImage)
+                .placeholder(R.drawable.item_producto_inflate   )
+                .into(imageViewProducto)
+
+            textViewDescripcion.text = product.displayName
+
+            if (product.promoPrice != null && product.promoPrice != 0.0) {
+                textViewPrecioConDescuento.visibility = View.VISIBLE
+                textViewPrecioConDescuento.text = "$${product.promoPrice}"
+            } else {
+                textViewPrecioConDescuento.visibility = View.GONE
+            }
+
+            if (product.salePrice != product.promoPrice) {
+                textViewPrecioSinDescuento.visibility = View.VISIBLE
+                textViewPrecioSinDescuento.text = "$${product.salePrice}"
+                textViewPrecioSinDescuento.paintFlags = if (product.promoPrice != null && product.promoPrice != 0.0) {
+                    textViewPrecioSinDescuento.paintFlags or Paint.STRIKE_THRU_TEXT_FLAG
+                } else {
+                    textViewPrecioSinDescuento.paintFlags and Paint.STRIKE_THRU_TEXT_FLAG.inv()
+                }
+            } else {
+                textViewPrecioSinDescuento.visibility = View.GONE
+            }
 
             layoutVariantesColor.removeAllViews()
 
-            if (product.colorVariants.isNotEmpty()) {
+            /*if (product.colorVariants.isNotEmpty()) {
                 for (color in product.colorVariants) {
                     val colorCircle = createColorCircle(color)
                     layoutVariantesColor.addView(colorCircle)
                 }
             }
+            */
         }
 
         private fun createColorCircle(color: String): View {
@@ -80,7 +103,6 @@ class ProductAdapter : RecyclerView.Adapter<ProductAdapter.ProductViewHolder>() 
             circle.background = createCircleBackground(color)
             return circle
         }
-//ESTO ES PRUEBA
         private fun createCircleBackground(color: String): Drawable {
             val drawable = ContextCompat.getDrawable(itemView.context, R.drawable.circle_background)
             drawable?.let {
