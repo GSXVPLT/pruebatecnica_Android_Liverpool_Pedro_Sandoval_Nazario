@@ -10,8 +10,12 @@ interface ApiService {
     fun getData(
         @Query("page-number") pageNumber: Int,
         @Query("search-string") searchString: String,
+        @Query("sort-by") sortBy: String,
         @Query("force-plp") forcePlp: Boolean = false,
         @Query("number-of-items-per-page") numberOfItemsPerPage: Int = 40,
         @Query("cleanProductName") cleanProductName: Boolean = false
     ): Call<ApiResponse>
 }
+
+
+

@@ -16,7 +16,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.pruebatecnica_android_liverpool_pedro_sandoval_nazario.Adapters.ProductAdapter
 import com.example.pruebatecnica_android_liverpool_pedro_sandoval_nazario.Clases.ApiResponse
-import com.example.pruebatecnica_android_liverpool_pedro_sandoval_nazario.Clases.Product
+import com.example.pruebatecnica_android_liverpool_pedro_sandoval_nazario.Clases.RecommendedItem
 import com.example.pruebatecnica_android_liverpool_pedro_sandoval_nazario.Interfaz.ApiService
 import com.example.pruebatecnica_android_liverpool_pedro_sandoval_nazario.R
 import retrofit2.Call
@@ -32,10 +32,10 @@ class ProductFragment : Fragment() {
     private lateinit var apiService: ApiService
     private lateinit var searchView: EditText
     private lateinit var sortBySpinner: Spinner
-    private val sortByOptions = listOf("Predefinida", "Menor Precio", "Mayor Precio", "Relevancia", "Lo Más Nuevo", "Calificaciones")
+    private val sortByOptions = listOf("Predefinida", "Relevancia" , "Lo Más Nuevo", "Menor Precio", "Mayor Precio", "Calificaciones")
     private var currentPage = 1
     private var isLoading = false
-    private var productList = mutableListOf<Product>()
+    private var productList = mutableListOf<RecommendedItem>()
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
         return inflater.inflate(R.layout.fragment_product, container, false)
@@ -54,7 +54,7 @@ class ProductFragment : Fragment() {
 
         setupSortBySpinner()
         apiService = createProductService()
-        fetchData("")
+        fetchData("","")
         setupPagination()
         setupSearch()
     }
@@ -68,17 +68,22 @@ class ProductFragment : Fragment() {
         return retrofit.create(ApiService::class.java)
     }
 
-    private fun fetchData(searchString: String) {
+    private fun fetchData(searchString: String, sortBy: String) {
         isLoading = true
-        val call: Call<ApiResponse> = apiService.getData(currentPage, searchString)
-        call.enqueue(object : Callback<ApiResponse> {
+        apiService.getData(currentPage, searchString, sortBy).enqueue(object : Callback<ApiResponse> {
             override fun onResponse(call: Call<ApiResponse>, response: Response<ApiResponse>) {
                 if (response.isSuccessful) {
                     val apiResponse = response.body()
                     if (apiResponse != null) {
-                        apiResponse.plpResults.records?.let { products ->
+                        apiResponse.plpResults?.records?.let { products ->
+                            productList.clear()
                             productList.addAll(products)
-                            adapter.addProducts(products)
+                            products.forEach { product ->
+                                product.variantsColor?.forEach { variant ->
+                                    adapter.addVariantInfo(variant)
+                                }
+                            }
+                            adapter.setProducts(products)
                             currentPage++
                         } ?: run {
                             Log.e("PruebaError", "La lista de productos está vacía")
@@ -93,6 +98,7 @@ class ProductFragment : Fragment() {
                 isLoading = false
             }
 
+
             override fun onFailure(call: Call<ApiResponse>, t: Throwable) {
                 val errorMessage = "Error de red al obtener los productos: ${t.message}"
                 Log.e("PruebaError", errorMessage)
@@ -100,6 +106,10 @@ class ProductFragment : Fragment() {
             }
         })
     }
+
+
+
+
 
     private fun setupPagination() {
         recyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
@@ -109,9 +119,8 @@ class ProductFragment : Fragment() {
                 val visibleItemCount = layoutManager.childCount
                 val totalItemCount = layoutManager.itemCount
                 val firstVisibleItemPosition = layoutManager.findFirstVisibleItemPosition()
-
                 if (!isLoading && (visibleItemCount + firstVisibleItemPosition) >= totalItemCount && firstVisibleItemPosition >= 0) {
-                    fetchData("")
+                    fetchData("","")
                 }
             }
         })
@@ -125,9 +134,12 @@ class ProductFragment : Fragment() {
                 filterProducts(s.toString().trim().toLowerCase(Locale.getDefault()))
             }
 
-            override fun afterTextChanged(s: Editable?) {}
+            override fun afterTextChanged(s: Editable?) {
+                fetchData(s.toString().trim().toLowerCase(Locale.getDefault()), sortBy = "")
+            }
         })
     }
+
 
     private fun filterProducts(searchText: String) {
         val filteredList = productList.filter { product ->
@@ -143,11 +155,21 @@ class ProductFragment : Fragment() {
 
         sortBySpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                fetchData("")
+                val sortByParam = when (position) {
+                    0 -> ""
+                    1 -> "Relevancia|0"
+                    2 -> "newArrival|1"
+                    3 -> "sortPrice|0"
+                    4 -> "sortPrice|1"
+                    5 -> "rating|1"
+                    else -> ""
+                }
+                fetchData("",sortBy = sortByParam)
             }
 
             override fun onNothingSelected(parent: AdapterView<*>?) {
             }
         }
     }
+
 }
